@@ -1,0 +1,23 @@
+{
+  "name": "nodejs",
+  "version": "1.0.0",
+  "description": "Node.js Tutorial",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "start": "clear ; nodemon --env-file=.env backend.js",
+    "server": "clear ; node --env-file=.env mong.js"
+  },
+  "author": "Patrick Okafor",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "mongodb": "^6.9.0"
+  },
+  "devDependencies": {
+    "chai": "^5.1.1",
+    "mocha": "^10.7.3",
+    "nodemon": "^3.1.5",
+    "sinon": "^19.0.2"
+  }
+}
