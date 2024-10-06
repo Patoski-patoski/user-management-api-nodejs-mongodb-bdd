@@ -26,6 +26,7 @@ async function insertDocument(document) {
     try {
         const insertResult = await usersCollection.insertOne(document);
         console.log(`Inserted document:`, insertResult.insertedId);
+        return insertResult;
     } catch (error) {
         console.error('Error inserting document:', error);
         throw error;

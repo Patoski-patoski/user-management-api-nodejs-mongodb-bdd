@@ -16,6 +16,11 @@ const logger = (req, res, next) => {
     console.log(`${req.method} ${req.url}`);
     next();
 }
+function sendResponse(res, statusCode, body) {
+    res.statusCode = statusCode;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(body));
+}
 
 const getUserhandler = async (req, res) => {
     try {
@@ -25,9 +30,7 @@ const getUserhandler = async (req, res) => {
         res.end();
         return;
     } catch (error) {
-        res.statusCode = 500;
-        res.write(JSON.stringify({ error: 'Failed to retrieve users' }));
-        res.end();
+        sendResponse(res, 500, JSON.stringify({ error: 'Failed to retrieve users' }))
         return;
     }
 };
@@ -35,9 +38,9 @@ const getUserhandler = async (req, res) => {
 const getUserhandlerId = async (req, res) => {
     const id = parseInt(req.url.split('/')[3]);
     const user = await findDocument({ user_id: id });
-    
+
     if (!user) {
-        errorUserhandler(req, res, id);
+        sendResponse(res, 400, { 'Error': `Unable to get user with id: ${id}` });
         return;
     } else {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -65,55 +68,40 @@ const deleteUserHandler = async (req, res) => {
 const postUserHandler = async (req, res) => {
     let body = '';
     req.on('data', (chunk) => {
-        body += chunk.toString(); // Accumulate data chunks
+        body += chunk.toString();
     });
 
     req.on('end', async () => {
         try {
             if (!body) {
-                res.statusCode = 400;
-                res.write(JSON.stringify({ error: 'No data received' }));
-                res.end();
-                return;
+                return sendResponse(res, 400, { error: 'No data received' });
             }
-
             const newUser = JSON.parse(body);
 
             const users = await usersCollection.find().toArray();
             const userIdExist = users.some(user => user.user_id === newUser.user_id);
             if (userIdExist) {
-                res.statusCode = 400;
-                res.write(JSON.stringify({ error: ` User with id: ${newUser.user_id} exists` }));
-                res.end();
-                return;
-            } else {
-                await insertDocument(newUser);
-                res.statusCode = 201;
-                res.write(JSON.stringify({ "New user": newUser }));
-                res.end();
-                return;
+                return sendResponse(res, 400, { error: `User with id: ${newUser.user_id} exists` });
             }
 
+            await insertDocument(newUser);
+            return sendResponse(res, 201, { "New user": newUser });
+
         } catch (error) {
-            res.statusCode = 400;
-            res.write(JSON.stringify({ error: 'Invalid JSON format' }));
+            if (error instanceof SyntaxError) {
+                return sendResponse(res, 400, { error: 'Invalid JSON format' });
+            }
+            console.error('Error in postUserHandler:', error);
+            return sendResponse(res, 500, { error: 'Internal server error' });
         }
-        res.end();
     });
 
     req.on('error', (err) => {
-        res.statusCode = 500;
-        res.write(JSON.stringify({ error: 'Internal server error. Cannot create user' }));
-        res.end();
+        console.error('Request error:', err);
+        sendResponse(res, 500, { error: 'Internal server error. Cannot create user' });
     });
 };
 
-const errorUserhandler = ((req, res, id) => {
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    const err = { "Message": `Unable to ${req.method}. User with id:${id} not found` }
-    res.write(JSON.stringify(err));
-    res.end();
-});
 
 const server = http.createServer((req, res) => {
     logger(req, res, () => {
@@ -132,3 +120,5 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOSTNAME, () => {
     console.log(`Server running at http://${HOSTNAME}/${PORT}`);
 });
+
+export default server;
